@@ -1,9 +1,9 @@
 """
 Configuration management for EtherLog.
 
-Config is stored as JSON in the platformdirs user config directory so the app
-behaves correctly when packaged with PyInstaller (the executable may live in a
-read-only location such as /usr/local/bin or a macOS .app bundle).
+Config and database files live next to the application itself so the whole
+folder can be moved or copied to any machine or USB drive without losing data
+(portable-app behaviour).
 
 SMTP password is kept out of the JSON file and stored via the system keychain
 using the `keyring` library.  If keyring is unavailable the module falls back
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -26,37 +27,10 @@ except ImportError:
     keyring = None  # type: ignore[assignment]
     _KEYRING_IMPORTABLE = False
 
-# platformdirs provides the correct user-config path for each OS.
-# If it is not installed we fall back to the stdlib equivalents, which produce
-# the same directories on all three platforms.
-try:
-    from platformdirs import user_config_dir as _platformdirs_config_dir
-    _PLATFORMDIRS_IMPORTABLE = True
-except ImportError:
-    import sys as _sys
-    import os as _os
-
-    def _platformdirs_config_dir(app_name: str, app_author: str = "") -> str:  # type: ignore[misc]
-        """Stdlib fallback replicating platformdirs.user_config_dir behaviour."""
-        if _sys.platform == "win32":
-            # %APPDATA%\<AppAuthor>\<AppName>  (same as platformdirs on Windows)
-            base = _os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-            return str(Path(base) / (app_author or app_name) / app_name)
-        if _sys.platform == "darwin":
-            return str(Path.home() / "Library" / "Application Support" / app_name)
-        # Linux / other Unix: honour XDG_CONFIG_HOME
-        xdg = _os.environ.get("XDG_CONFIG_HOME", "")
-        base_dir = Path(xdg) if xdg else Path.home() / ".config"
-        return str(base_dir / app_name)
-
-    _PLATFORMDIRS_IMPORTABLE = False
-
 from models import AppConfig, SMTPConfig, SenderProfile
 
 log = logging.getLogger(__name__)
 
-APP_NAME = "EtherLog"
-APP_AUTHOR = "EtherLog"
 _KEYRING_SERVICE = "EtherLog-SMTP"
 _KEYRING_USERNAME = "smtp_password"
 
@@ -65,19 +39,29 @@ _KEYRING_USERNAME = "smtp_password"
 # Path helpers
 # ---------------------------------------------------------------------------
 
-def get_config_dir() -> Path:
-    """Return (and create if needed) the platform-appropriate config directory.
-
-    Uses platformdirs when available; falls back to a stdlib implementation
-    that produces the same paths so the app works before dependencies are
-    fully installed.
-      Windows : %APPDATA%\\EtherLog\\EtherLog
-      macOS   : ~/Library/Application Support/EtherLog
-      Linux   : ~/.config/EtherLog
+def _get_app_dir() -> Path:
     """
-    config_dir = Path(_platformdirs_config_dir(APP_NAME, APP_AUTHOR))
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return config_dir
+    Return the directory that contains the application.
+
+    When frozen by PyInstaller the data directory is the folder that contains
+    the executable (.exe / binary), so the app is fully self-contained and
+    portable.  When running from source it is the directory that contains
+    this file (the project root).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def get_config_dir() -> Path:
+    """Return (and create if needed) the directory used for config and data files.
+
+    Both config.json and etherlog.db are stored here, next to the program,
+    so the entire folder can be moved or copied without losing any data.
+    """
+    d = _get_app_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def get_config_path() -> Path:
