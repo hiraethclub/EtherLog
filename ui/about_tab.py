@@ -93,7 +93,7 @@ class AboutTab(QWidget):
         outer.addWidget(ded_label)
 
         ded_text = QLabel(
-            "For Emma and Favourite John — who have endured more than their fair share\n"
+            "For Emma, Favourite John, Lucy, and Sam — who have endured more than their fair share\n"
             "of enthusiastic monologues about frequencies, fading, and far-off broadcasts.\n"
             "Your patience is deeply appreciated."
         )
