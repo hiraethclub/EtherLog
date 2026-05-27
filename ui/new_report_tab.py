@@ -134,6 +134,7 @@ class NewReportTab(QWidget):
         self._freq_lookup_btn.setToolTip("Find stations at this frequency in the EIBI database")
         self._freq_lookup_btn.clicked.connect(self._on_freq_lookup)
         freq_container = QWidget()
+        freq_container.setMaximumWidth(300)
         freq_hl = QHBoxLayout(freq_container)
         freq_hl.setContentsMargins(0, 0, 0, 0)
         freq_hl.setSpacing(4)
@@ -280,21 +281,22 @@ class NewReportTab(QWidget):
             self._sinpo_combos[letter] = combo
             dropdowns_row.addLayout(col)
 
-        # Always-visible reference panel
+        # Always-visible reference panel — one label per entry so Qt can
+        # compute each label's word-wrap height independently (a single
+        # multi-line HTML label in a QGroupBox miscalculates its height).
         ref = QGroupBox("SINPO Reference")
         ref_layout = QVBoxLayout(ref)
         ref_layout.setContentsMargins(6, 4, 6, 4)
-        lines = []
+        ref_layout.setSpacing(2)
         for letter, (label, values) in SINPO_DESCRIPTIONS.items():
             val_strs = ", ".join(f"{k}={v}" for k, v in values.items())
-            lines.append(f"<b>{letter}</b> – {label}: {val_strs}")
-        ref_label = QLabel("<br>".join(lines))
-        ref_label.setWordWrap(True)
-        ref_label.setTextFormat(Qt.RichText)
-        ref_layout.addWidget(ref_label)
+            entry = QLabel(f"<b>{letter}</b> – {label}: {val_strs}")
+            entry.setWordWrap(True)
+            entry.setTextFormat(Qt.RichText)
+            ref_layout.addWidget(entry)
         layout.addWidget(ref)
 
-        widget.setMaximumWidth(520)
+        widget.setMaximumWidth(540)
         return widget
 
     def _build_form_row_map(self) -> None:
