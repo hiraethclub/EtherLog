@@ -230,6 +230,11 @@ class NewReportTab(QWidget):
         self._copy_btn.clicked.connect(self._on_copy)
         btn_layout.addWidget(self._copy_btn)
 
+        self._save_btn = QPushButton("Save to Log")
+        self._save_btn.clicked.connect(self._on_save_draft)
+        self._save_btn.setToolTip("Save this report as a Draft without sending")
+        btn_layout.addWidget(self._save_btn)
+
         self._send_btn = QPushButton("Send via Email")
         self._send_btn.clicked.connect(self._on_send)
         btn_layout.addWidget(self._send_btn)
@@ -521,13 +526,28 @@ class NewReportTab(QWidget):
 
         return "\n".join(lines)
 
+    def _on_save_draft(self) -> None:
+        if not self._validate():
+            return
+        entry = self._build_report_entry()
+        entry.status = "Draft"
+        log_store.save_report(entry)
+        self.refresh_autocomplete()
+        QMessageBox.information(self, "Saved", "Report saved to log as Draft.")
+
     def _on_copy(self) -> None:
         if not self._validate():
             return
         entry = self._build_report_entry()
         text = self._compose_report_text(entry)
         QApplication.clipboard().setText(text)
-        QMessageBox.information(self, "Copied", "Report copied to clipboard.")
+        # Also save to log so copied reports are never silently lost
+        entry.status = "Draft"
+        log_store.save_report(entry)
+        self.refresh_autocomplete()
+        QMessageBox.information(
+            self, "Copied", "Report copied to clipboard and saved to log as Draft."
+        )
 
     def _on_send(self) -> None:
         if not self._validate():
