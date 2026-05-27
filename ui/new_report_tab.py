@@ -281,19 +281,25 @@ class NewReportTab(QWidget):
             self._sinpo_combos[letter] = combo
             dropdowns_row.addLayout(col)
 
-        # Always-visible reference panel — one label per entry so Qt can
-        # compute each label's word-wrap height independently (a single
-        # multi-line HTML label in a QGroupBox miscalculates its height).
+        # Always-visible reference panel — QTextEdit (read-only, no frame)
+        # computes its own document height correctly, avoiding the Qt
+        # heightForWidth bug that clips word-wrapped QLabels inside QGroupBox.
         ref = QGroupBox("SINPO Reference")
         ref_layout = QVBoxLayout(ref)
-        ref_layout.setContentsMargins(6, 4, 6, 4)
-        ref_layout.setSpacing(2)
+        ref_layout.setContentsMargins(4, 2, 4, 2)
+        lines = []
         for letter, (label, values) in SINPO_DESCRIPTIONS.items():
             val_strs = ", ".join(f"{k}={v}" for k, v in values.items())
-            entry = QLabel(f"<b>{letter}</b> – {label}: {val_strs}")
-            entry.setWordWrap(True)
-            entry.setTextFormat(Qt.RichText)
-            ref_layout.addWidget(entry)
+            lines.append(f"<b>{letter}</b> – {label}: {val_strs}")
+        ref_text = QTextEdit()
+        ref_text.setReadOnly(True)
+        ref_text.setFrameShape(QFrame.NoFrame)
+        ref_text.setHtml("<br>".join(lines))
+        ref_text.setMinimumHeight(160)
+        ref_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        ref_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        ref_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        ref_layout.addWidget(ref_text)
         layout.addWidget(ref)
 
         widget.setMaximumWidth(540)
