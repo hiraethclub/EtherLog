@@ -26,7 +26,30 @@ except ImportError:
     keyring = None  # type: ignore[assignment]
     _KEYRING_IMPORTABLE = False
 
-from platformdirs import user_config_dir
+# platformdirs provides the correct user-config path for each OS.
+# If it is not installed we fall back to the stdlib equivalents, which produce
+# the same directories on all three platforms.
+try:
+    from platformdirs import user_config_dir as _platformdirs_config_dir
+    _PLATFORMDIRS_IMPORTABLE = True
+except ImportError:
+    import sys as _sys
+    import os as _os
+
+    def _platformdirs_config_dir(app_name: str, app_author: str = "") -> str:  # type: ignore[misc]
+        """Stdlib fallback replicating platformdirs.user_config_dir behaviour."""
+        if _sys.platform == "win32":
+            # %APPDATA%\<AppAuthor>\<AppName>  (same as platformdirs on Windows)
+            base = _os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+            return str(Path(base) / (app_author or app_name) / app_name)
+        if _sys.platform == "darwin":
+            return str(Path.home() / "Library" / "Application Support" / app_name)
+        # Linux / other Unix: honour XDG_CONFIG_HOME
+        xdg = _os.environ.get("XDG_CONFIG_HOME", "")
+        base_dir = Path(xdg) if xdg else Path.home() / ".config"
+        return str(base_dir / app_name)
+
+    _PLATFORMDIRS_IMPORTABLE = False
 
 from models import AppConfig, SMTPConfig, SenderProfile
 
@@ -43,12 +66,16 @@ _KEYRING_USERNAME = "smtp_password"
 # ---------------------------------------------------------------------------
 
 def get_config_dir() -> Path:
-    """Return (and create if needed) the platform-appropriate config directory."""
-    # platformdirs returns the correct location per platform:
-    #   Windows : %APPDATA%\EtherLog\EtherLog
-    #   macOS   : ~/Library/Application Support/EtherLog
-    #   Linux   : ~/.config/EtherLog
-    config_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))
+    """Return (and create if needed) the platform-appropriate config directory.
+
+    Uses platformdirs when available; falls back to a stdlib implementation
+    that produces the same paths so the app works before dependencies are
+    fully installed.
+      Windows : %APPDATA%\\EtherLog\\EtherLog
+      macOS   : ~/Library/Application Support/EtherLog
+      Linux   : ~/.config/EtherLog
+    """
+    config_dir = Path(_platformdirs_config_dir(APP_NAME, APP_AUTHOR))
     config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir
 
