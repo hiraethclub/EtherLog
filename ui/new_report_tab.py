@@ -261,32 +261,38 @@ class NewReportTab(QWidget):
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # Dropdowns — stretch after the five columns keeps them compact/left-aligned
         dropdowns_row = QHBoxLayout()
+        dropdowns_row.setSpacing(6)
         layout.addLayout(dropdowns_row)
 
         self._sinpo_combos: dict[str, QComboBox] = {}
         for letter, (label, values) in SINPO_DESCRIPTIONS.items():
             col = QVBoxLayout()
+            col.setSpacing(2)
             lbl = QLabel(f"<b>{letter}</b>")
             lbl.setAlignment(Qt.AlignCenter)
-            lbl.setToolTip(f"{label}")
+            lbl.setToolTip(label)
             col.addWidget(lbl)
 
             combo = QComboBox()
+            combo.setFixedWidth(54)
             for val, desc in values.items():
                 combo.addItem(val, userData=desc)
             combo.setCurrentIndex(2)  # default 3 (moderate)
-            combo.setToolTip(f"{label}")
+            combo.setToolTip(label)
             col.addWidget(combo)
             self._sinpo_combos[letter] = combo
             dropdowns_row.addLayout(col)
 
-        # Always-visible reference panel — QTextEdit (read-only, no frame)
-        # computes its own document height correctly, avoiding the Qt
-        # heightForWidth bug that clips word-wrapped QLabels inside QGroupBox.
+        dropdowns_row.addStretch()
+
+        # Reference panel — QTextEdit avoids the Qt heightForWidth bug that
+        # clips word-wrapped QLabels inside QGroupBox. No outer width cap so
+        # it uses the full form-field column and text doesn't wrap tightly.
         ref = QGroupBox("SINPO Reference")
         ref_layout = QVBoxLayout(ref)
-        ref_layout.setContentsMargins(4, 2, 4, 2)
+        ref_layout.setContentsMargins(6, 4, 6, 4)
         lines = []
         for letter, (label, values) in SINPO_DESCRIPTIONS.items():
             val_strs = ", ".join(f"{k}={v}" for k, v in values.items())
@@ -295,14 +301,13 @@ class NewReportTab(QWidget):
         ref_text.setReadOnly(True)
         ref_text.setFrameShape(QFrame.NoFrame)
         ref_text.setHtml("<br>".join(lines))
-        ref_text.setMinimumHeight(160)
+        ref_text.setMinimumHeight(130)
         ref_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        ref_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        ref_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         ref_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         ref_layout.addWidget(ref_text)
         layout.addWidget(ref)
 
-        widget.setMaximumWidth(540)
         return widget
 
     def _build_form_row_map(self) -> None:
