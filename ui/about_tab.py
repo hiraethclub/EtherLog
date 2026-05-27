@@ -84,6 +84,27 @@ class AboutTab(QWidget):
 
         outer.addSpacing(16)
 
+        # Dedication
+        ded_label = QLabel("Dedication")
+        ded_font = QFont()
+        ded_font.setBold(True)
+        ded_label.setFont(ded_font)
+        ded_label.setAlignment(Qt.AlignCenter)
+        outer.addWidget(ded_label)
+
+        ded_text = QLabel(
+            "For Emma and Favourite John — who have endured more than their fair share\n"
+            "of enthusiastic monologues about frequencies, fading, and far-off broadcasts.\n"
+            "Your patience is deeply appreciated."
+        )
+        ded_text.setAlignment(Qt.AlignCenter)
+        ded_italic = QFont()
+        ded_italic.setItalic(True)
+        ded_text.setFont(ded_italic)
+        outer.addWidget(ded_text)
+
+        outer.addSpacing(16)
+
         # Licence / tech note
         tech = QLabel(
             "Built with Python and PyQt5 · SQLite · EIBI schedule data"
