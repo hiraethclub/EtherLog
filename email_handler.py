@@ -45,19 +45,22 @@ def send_email(
     host = smtp_cfg.host
     port = smtp_cfg.port
 
-    if smtp_cfg.use_ssl:
-        # SSL wraps the entire connection from the start (port 465)
+    def _make_ssl_ctx() -> ssl.SSLContext:
         ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL(host, port, context=ctx, timeout=30) as server:
+        if smtp_cfg.accept_self_signed:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+    if smtp_cfg.use_ssl:
+        with smtplib.SMTP_SSL(host, port, context=_make_ssl_ctx(), timeout=30) as server:
             if password:
                 server.login(smtp_cfg.username, password)
             server.sendmail(from_addr, [to_addr], msg.as_string())
     else:
         with smtplib.SMTP(host, port, timeout=30) as server:
             if smtp_cfg.use_tls:
-                # STARTTLS upgrades the existing plain connection (port 587)
-                ctx = ssl.create_default_context()
-                server.starttls(context=ctx)
+                server.starttls(context=_make_ssl_ctx())
             if password:
                 server.login(smtp_cfg.username, password)
             server.sendmail(from_addr, [to_addr], msg.as_string())
@@ -71,16 +74,21 @@ def test_connection(smtp_cfg: SMTPConfig, password: str) -> None:
     host = smtp_cfg.host
     port = smtp_cfg.port
 
-    if smtp_cfg.use_ssl:
+    def _make_ssl_ctx() -> ssl.SSLContext:
         ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL(host, port, context=ctx, timeout=15) as server:
+        if smtp_cfg.accept_self_signed:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+    if smtp_cfg.use_ssl:
+        with smtplib.SMTP_SSL(host, port, context=_make_ssl_ctx(), timeout=15) as server:
             if password:
                 server.login(smtp_cfg.username, password)
     else:
         with smtplib.SMTP(host, port, timeout=15) as server:
             if smtp_cfg.use_tls:
-                ctx = ssl.create_default_context()
-                server.starttls(context=ctx)
+                server.starttls(context=_make_ssl_ctx())
             if password:
                 server.login(smtp_cfg.username, password)
 

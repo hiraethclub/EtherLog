@@ -52,6 +52,7 @@ class SMTPConfig:
     username: str = ""
     use_tls: bool = True
     use_ssl: bool = False
+    accept_self_signed: bool = False
 
 
 @dataclass

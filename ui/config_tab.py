@@ -285,6 +285,14 @@ class ConfigTab(QWidget):
         self._ssl_cb.stateChanged.connect(self._save)
         form.addRow("", self._ssl_cb)
 
+        self._self_signed_cb = QCheckBox("Accept self-signed certificates")
+        self._self_signed_cb.setToolTip(
+            "Disable SSL certificate verification.\n"
+            "Use this for local or private mail servers with self-signed certificates."
+        )
+        self._self_signed_cb.stateChanged.connect(self._save)
+        form.addRow("", self._self_signed_cb)
+
         self._test_btn = QPushButton("Test Connection")
         self._test_btn.clicked.connect(self._on_test_connection)
         self._test_label = QLabel("")
@@ -338,6 +346,7 @@ class ConfigTab(QWidget):
         self._smtp_user.setText(cfg.smtp.username)
         self._tls_cb.setChecked(cfg.smtp.use_tls)
         self._ssl_cb.setChecked(cfg.smtp.use_ssl)
+        self._self_signed_cb.setChecked(cfg.smtp.accept_self_signed)
 
         # Load password from keyring (or file fallback)
         pwd = cfg_module.load_smtp_password(cfg)
@@ -436,6 +445,7 @@ class ConfigTab(QWidget):
         cfg.smtp.username = self._smtp_user.text().strip()
         cfg.smtp.use_tls = self._tls_cb.isChecked()
         cfg.smtp.use_ssl = self._ssl_cb.isChecked()
+        cfg.smtp.accept_self_signed = self._self_signed_cb.isChecked()
         cfg.theme = self._theme_combo.currentText()
         return cfg
 

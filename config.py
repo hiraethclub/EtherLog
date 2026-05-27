@@ -83,6 +83,7 @@ def _smtp_to_dict(smtp: SMTPConfig) -> dict:
         "username": smtp.username,
         "use_tls": smtp.use_tls,
         "use_ssl": smtp.use_ssl,
+        "accept_self_signed": smtp.accept_self_signed,
     }
 
 
@@ -93,6 +94,7 @@ def _smtp_from_dict(d: dict) -> SMTPConfig:
         username=d.get("username", ""),
         use_tls=bool(d.get("use_tls", True)),
         use_ssl=bool(d.get("use_ssl", False)),
+        accept_self_signed=bool(d.get("accept_self_signed", False)),
     )
 
 
