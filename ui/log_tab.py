@@ -16,13 +16,198 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox,
     QTableWidget, QTableWidgetItem, QHeaderView, QTextEdit,
     QPushButton, QLabel, QMenu, QMessageBox, QFileDialog,
-    QAbstractItemView, QSplitter,
+    QAbstractItemView, QSplitter, QDialog, QDialogButtonBox,
+    QFormLayout, QScrollArea, QFrame, QDateEdit, QTimeEdit,
+    QSpinBox,
 )
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QCursor
+from PyQt5.QtCore import Qt, pyqtSignal, QDate, QTime
 
 from models import ReportEntry
 from data import log_store
+
+
+# ---------------------------------------------------------------------------
+# Edit dialog
+# ---------------------------------------------------------------------------
+
+_MODES = ["AM", "FM", "USB", "LSB", "CW", "DRM", "Other"]
+_STATUS_EDIT = ["Draft", "Sent", "QSL Received"]
+_QSL_OPTIONS = ["", "eQSL", "Physical card", "Either"]
+
+
+class EditReportDialog(QDialog):
+    """Full-field editor for an existing log entry."""
+
+    def __init__(self, entry: ReportEntry, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Report")
+        self.resize(540, 620)
+        self._entry = entry
+        self._build_ui()
+        self._load(entry)
+
+    def _build_ui(self) -> None:
+        outer = QVBoxLayout(self)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        outer.addWidget(scroll)
+
+        container = QWidget()
+        scroll.setWidget(container)
+        self._form = QFormLayout(container)
+        self._form.setLabelAlignment(Qt.AlignRight)
+        self._form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+
+        self._station = QLineEdit()
+        self._form.addRow("Station Name:", self._station)
+
+        self._freq = QLineEdit()
+        self._form.addRow("Frequency (kHz):", self._freq)
+
+        self._mode = QComboBox()
+        self._mode.addItems(_MODES)
+        self._form.addRow("Mode:", self._mode)
+
+        self._date = QDateEdit()
+        self._date.setCalendarPopup(True)
+        self._date.setDisplayFormat("yyyy-MM-dd")
+        self._form.addRow("Date UTC:", self._date)
+
+        self._time = QTimeEdit()
+        self._time.setDisplayFormat("HH:mm")
+        self._form.addRow("Time UTC:", self._time)
+
+        self._sinpo = QLineEdit()
+        self._sinpo.setMaxLength(5)
+        self._sinpo.setPlaceholderText("e.g. 33333")
+        self._form.addRow("SINPO:", self._sinpo)
+
+        self._status = QComboBox()
+        self._status.addItems(_STATUS_EDIT)
+        self._form.addRow("Status:", self._status)
+
+        self._recipient = QLineEdit()
+        self._form.addRow("Recipient Email:", self._recipient)
+
+        self._language = QLineEdit()
+        self._form.addRow("Language:", self._language)
+
+        self._region = QLineEdit()
+        self._form.addRow("Target Region:", self._region)
+
+        self._txsite = QLineEdit()
+        self._form.addRow("Transmitter Site:", self._txsite)
+
+        self._receiver = QLineEdit()
+        self._form.addRow("Receiver:", self._receiver)
+
+        self._antenna = QLineEdit()
+        self._form.addRow("Antenna:", self._antenna)
+
+        self._software = QLineEdit()
+        self._form.addRow("Software:", self._software)
+
+        self._os = QLineEdit()
+        self._form.addRow("Operating System:", self._os)
+
+        self._qsl_pref = QComboBox()
+        self._qsl_pref.addItems(_QSL_OPTIONS)
+        self._form.addRow("QSL Preference:", self._qsl_pref)
+
+        self._listener = QLineEdit()
+        self._form.addRow("Listener Number:", self._listener)
+
+        self._fading = QLineEdit()
+        self._form.addRow("Fading:", self._fading)
+
+        self._interference = QLineEdit()
+        self._form.addRow("Interference:", self._interference)
+
+        self._programme = QTextEdit()
+        self._programme.setFixedHeight(70)
+        self._form.addRow("Programme Details:", self._programme)
+
+        self._remarks = QTextEdit()
+        self._remarks.setFixedHeight(70)
+        self._form.addRow("Remarks:", self._remarks)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self._on_save)
+        buttons.rejected.connect(self.reject)
+        outer.addWidget(buttons)
+
+    def _load(self, e: ReportEntry) -> None:
+        self._station.setText(e.station_name)
+        self._freq.setText(str(e.frequency) if e.frequency else "")
+        idx = self._mode.findText(e.mode)
+        if idx >= 0:
+            self._mode.setCurrentIndex(idx)
+        if e.date_utc:
+            try:
+                from datetime import datetime
+                d = datetime.fromisoformat(e.date_utc)
+                self._date.setDate(QDate(d.year, d.month, d.day))
+            except ValueError:
+                pass
+        if e.time_utc:
+            try:
+                h, m = e.time_utc.split(":")
+                self._time.setTime(QTime(int(h), int(m)))
+            except (ValueError, AttributeError):
+                pass
+        self._sinpo.setText(e.sinpo)
+        idx = self._status.findText(e.status)
+        if idx >= 0:
+            self._status.setCurrentIndex(idx)
+        self._recipient.setText(e.recipient_email)
+        self._language.setText(e.language)
+        self._region.setText(e.target_region)
+        self._txsite.setText(e.transmitter_site)
+        self._receiver.setText(e.receiver)
+        self._antenna.setText(e.antenna)
+        self._software.setText(e.software)
+        self._os.setText(e.operating_system)
+        idx = self._qsl_pref.findText(e.qsl_preference)
+        if idx >= 0:
+            self._qsl_pref.setCurrentIndex(idx)
+        self._listener.setText(e.listener_number)
+        self._fading.setText(e.fading)
+        self._interference.setText(e.interference)
+        self._programme.setPlainText(e.programme_details)
+        self._remarks.setPlainText(e.remarks)
+
+    def _on_save(self) -> None:
+        if not self._station.text().strip():
+            QMessageBox.warning(self, "Required", "Station Name is required.")
+            return
+        d = self._date.date()
+        t = self._time.time()
+        e = self._entry
+        e.station_name = self._station.text().strip()
+        e.frequency = float(self._freq.text().strip() or 0)
+        e.mode = self._mode.currentText()
+        e.date_utc = f"{d.year():04d}-{d.month():02d}-{d.day():02d}"
+        e.time_utc = f"{t.hour():02d}:{t.minute():02d}"
+        e.sinpo = self._sinpo.text().strip()
+        e.status = self._status.currentText()
+        e.recipient_email = self._recipient.text().strip()
+        e.language = self._language.text().strip()
+        e.target_region = self._region.text().strip()
+        e.transmitter_site = self._txsite.text().strip()
+        e.receiver = self._receiver.text().strip()
+        e.antenna = self._antenna.text().strip()
+        e.software = self._software.text().strip()
+        e.operating_system = self._os.text().strip()
+        e.qsl_preference = self._qsl_pref.currentText()
+        e.listener_number = self._listener.text().strip()
+        e.fading = self._fading.text().strip()
+        e.interference = self._interference.text().strip()
+        e.programme_details = self._programme.toPlainText().strip()
+        e.remarks = self._remarks.toPlainText().strip()
+        log_store.update_report(e)
+        self.accept()
 
 
 _COLUMNS = ["Date", "Time", "Station", "Frequency", "Mode", "SINPO", "Recipient", "Status"]
@@ -89,12 +274,27 @@ class LogTab(QWidget):
         self._table.customContextMenuRequested.connect(self._on_context_menu)
         splitter.addWidget(self._table)
 
-        # Detail panel
+        # Detail panel + Edit button
+        detail_widget = QWidget()
+        detail_layout = QVBoxLayout(detail_widget)
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        detail_layout.setSpacing(4)
+
         self._detail = QTextEdit()
         self._detail.setReadOnly(True)
         self._detail.setPlaceholderText("Select a row to view report details.")
-        splitter.addWidget(self._detail)
-        splitter.setSizes([400, 200])
+        detail_layout.addWidget(self._detail)
+
+        btn_row = QHBoxLayout()
+        detail_layout.addLayout(btn_row)
+        self._edit_btn = QPushButton("Edit Entry…")
+        self._edit_btn.setEnabled(False)
+        self._edit_btn.clicked.connect(self._on_edit)
+        btn_row.addWidget(self._edit_btn)
+        btn_row.addStretch()
+
+        splitter.addWidget(detail_widget)
+        splitter.setSizes([400, 220])
 
     # ------------------------------------------------------------------
     # Public API
@@ -161,8 +361,22 @@ class LogTab(QWidget):
         r = self._selected_report()
         if r is None:
             self._detail.clear()
+            self._edit_btn.setEnabled(False)
             return
         self._detail.setPlainText(self._format_detail(r))
+        self._edit_btn.setEnabled(True)
+
+    def _on_edit(self) -> None:
+        r = self._selected_report()
+        if r is None:
+            return
+        dlg = EditReportDialog(r, parent=self)
+        if dlg.exec_() == dlg.Accepted:
+            self.refresh()
+            # Restore the detail panel for the updated entry
+            updated = log_store.get_report_by_id(r.id)
+            if updated:
+                self._detail.setPlainText(self._format_detail(updated))
 
     def _format_detail(self, r: ReportEntry) -> str:
         lines = [
@@ -211,6 +425,8 @@ class LogTab(QWidget):
 
         menu = QMenu(self)
 
+        edit_act = menu.addAction("Edit…")
+        menu.addSeparator()
         resend_act = menu.addAction("Resend")
         template_act = menu.addAction("Use as Template")
         qsl_act = menu.addAction("Mark as QSL Received")
@@ -218,7 +434,9 @@ class LogTab(QWidget):
         export_act = menu.addAction("Export Selected to CSV")
 
         action = menu.exec_(self._table.viewport().mapToGlobal(pos))
-        if action == resend_act:
+        if action == edit_act:
+            self._on_edit()
+        elif action == resend_act:
             self._resend(r)
         elif action == template_act:
             self.use_as_template.emit(r)

@@ -22,6 +22,7 @@ from ui.new_report_tab import NewReportTab
 from ui.log_tab import LogTab
 from ui.station_db_tab import StationDbTab
 from ui.config_tab import ConfigTab
+from ui.about_tab import AboutTab
 
 
 class MainWindow(QMainWindow):
@@ -57,11 +58,13 @@ class MainWindow(QMainWindow):
         self._log_tab = LogTab()
         self._station_tab = StationDbTab()
         self._config_tab = ConfigTab(app_config=self._config)
+        self._about_tab = AboutTab()
 
         self._tabs.addTab(self._report_tab, "New Report")
         self._tabs.addTab(self._log_tab, "Log")
         self._tabs.addTab(self._station_tab, "Station Database")
         self._tabs.addTab(self._config_tab, "Configuration")
+        self._tabs.addTab(self._about_tab, "About")
 
         # Wire up cross-tab signals
         self._config_tab.config_changed.connect(self._on_config_changed)
