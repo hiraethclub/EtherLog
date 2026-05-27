@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._config = app_config
         self.setWindowTitle("EtherLog – Shortwave Reception Logger")
-        self.resize(1120, 1020)
+        self.resize(1120, 1220)
 
         self._build_ui()
         self._start_clock()
