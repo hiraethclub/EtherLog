@@ -57,6 +57,7 @@ class SMTPConfig:
 @dataclass
 class ReportEntry:
     id: int = 0
+    report_number: int = 0
     station_name: str = ""
     frequency: float = 0.0
     mode: str = "AM"

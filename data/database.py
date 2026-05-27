@@ -111,6 +111,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
     # Migrate: add any columns introduced after initial release
     _add_column_if_missing(conn, "reports", "operating_system", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "reports", "report_number", "INTEGER NOT NULL DEFAULT 0")
 
 
 def _add_column_if_missing(

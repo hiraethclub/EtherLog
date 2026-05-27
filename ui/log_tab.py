@@ -60,6 +60,10 @@ class EditReportDialog(QDialog):
         self._form.setLabelAlignment(Qt.AlignRight)
         self._form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
+        self._report_num = QLineEdit()
+        self._report_num.setReadOnly(True)
+        self._form.addRow("Report #:", self._report_num)
+
         self._station = QLineEdit()
         self._form.addRow("Station Name:", self._station)
 
@@ -139,6 +143,7 @@ class EditReportDialog(QDialog):
         outer.addWidget(buttons)
 
     def _load(self, e: ReportEntry) -> None:
+        self._report_num.setText(f"#{e.report_number:04d}" if e.report_number else "—")
         self._station.setText(e.station_name)
         self._freq.setText(str(e.frequency) if e.frequency else "")
         idx = self._mode.findText(e.mode)
@@ -256,6 +261,10 @@ class LogTab(QWidget):
         export_btn.clicked.connect(self._export_all_csv)
         filter_row.addWidget(export_btn)
 
+        self._stats_label = QLabel("")
+        self._stats_label.setAlignment(Qt.AlignRight)
+        layout.addWidget(self._stats_label)
+
         # Splitter: table on top, detail below
         splitter = QSplitter(Qt.Vertical)
         layout.addWidget(splitter)
@@ -308,6 +317,17 @@ class LogTab(QWidget):
         """Reload all reports from the database and redisplay."""
         self._reports = log_store.get_all_reports()
         self._apply_filters()
+        self._update_stats()
+
+    def _update_stats(self) -> None:
+        total = len(self._reports)
+        unique = len({r.station_name for r in self._reports})
+        qsls = sum(1 for r in self._reports if r.status == "QSL Received")
+        self._stats_label.setText(
+            f"{total} report{'s' if total != 1 else ''} · "
+            f"{unique} station{'s' if unique != 1 else ''} · "
+            f"{qsls} QSL{'s' if qsls != 1 else ''} received"
+        )
 
     # ------------------------------------------------------------------
     # Internal
@@ -385,7 +405,9 @@ class LogTab(QWidget):
                 self._detail.setPlainText(self._format_detail(updated))
 
     def _format_detail(self, r: ReportEntry) -> str:
+        num = f"#{r.report_number:04d}" if r.report_number else "—"
         lines = [
+            f"Report #:         {num}",
             f"Station:          {r.station_name}",
             f"Frequency:        {r.frequency} kHz",
             f"Mode:             {r.mode}",

@@ -119,3 +119,18 @@ class MainWindow(QMainWindow):
     def _apply_theme(self, theme: str) -> None:
         from ui.theme import apply_theme
         apply_theme(theme)
+
+    def closeEvent(self, event) -> None:
+        if self._report_tab.has_unsaved_data():
+            from PyQt5.QtWidgets import QMessageBox
+            answer = QMessageBox.question(
+                self,
+                "Unsaved Report",
+                "The New Report form has unsaved data. Discard and quit?",
+                QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if answer == QMessageBox.Cancel:
+                event.ignore()
+                return
+        event.accept()

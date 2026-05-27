@@ -103,9 +103,20 @@ def set_active_profile(profile_id: int) -> None:
 # Reports
 # ---------------------------------------------------------------------------
 
+def get_next_report_number() -> int:
+    """Return the next sequential report number (MAX + 1 across all saved reports)."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT COALESCE(MAX(report_number), 0) + 1 FROM reports"
+    ).fetchone()
+    return row[0]
+
+
 def _report_from_row(row: sqlite3.Row) -> ReportEntry:
+    keys = row.keys()
     return ReportEntry(
         id=row["id"],
+        report_number=row["report_number"] if "report_number" in keys else 0,
         station_name=row["station_name"],
         frequency=float(row["frequency"]),
         mode=row["mode"],
@@ -152,14 +163,19 @@ def save_report(entry: ReportEntry) -> int:
     """Insert a new report and return its id."""
     conn = get_connection()
     now_utc = datetime.now(timezone.utc).isoformat()
+    if entry.report_number == 0:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(report_number), 0) + 1 FROM reports"
+        ).fetchone()
+        entry.report_number = row[0]
     cur = conn.execute(
         """INSERT INTO reports (
             station_name, frequency, mode, date_utc, time_utc, sinpo,
             recipient_email, status, language, target_region, transmitter_site,
             receiver, antenna, software, operating_system, qsl_preference,
             listener_number, fading, interference, programme_details, remarks,
-            created_at, sender_profile_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            created_at, sender_profile_id, report_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             entry.station_name, entry.frequency, entry.mode,
             entry.date_utc, entry.time_utc, entry.sinpo,
@@ -168,7 +184,7 @@ def save_report(entry: ReportEntry) -> int:
             entry.receiver, entry.antenna, entry.software, entry.operating_system,
             entry.qsl_preference, entry.listener_number,
             entry.fading, entry.interference, entry.programme_details, entry.remarks,
-            now_utc, entry.sender_profile_id,
+            now_utc, entry.sender_profile_id, entry.report_number,
         ),
     )
     conn.commit()

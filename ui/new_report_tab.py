@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QLineEdit, QComboBox, QDateEdit, QTimeEdit, QTextEdit,
     QPushButton, QCompleter, QMessageBox, QScrollArea, QFrame,
     QSizePolicy, QToolTip, QGroupBox, QApplication,
+    QDialog, QDialogButtonBox, QListWidget,
 )
 from PyQt5.QtCore import Qt, QStringListModel, QDate, QTime
 from PyQt5.QtGui import QFont
@@ -129,7 +130,16 @@ class NewReportTab(QWidget):
         self._freq_edit = QLineEdit()
         self._freq_edit.setPlaceholderText("kHz")
         self._freq_edit.textEdited.connect(lambda: self._mark_dirty("frequency"))
-        form.addRow("Frequency (kHz) *:", self._freq_edit)
+        self._freq_lookup_btn = QPushButton("Look up")
+        self._freq_lookup_btn.setToolTip("Find stations at this frequency in the EIBI database")
+        self._freq_lookup_btn.clicked.connect(self._on_freq_lookup)
+        freq_container = QWidget()
+        freq_hl = QHBoxLayout(freq_container)
+        freq_hl.setContentsMargins(0, 0, 0, 0)
+        freq_hl.setSpacing(4)
+        freq_hl.addWidget(self._freq_edit)
+        freq_hl.addWidget(self._freq_lookup_btn)
+        form.addRow("Frequency (kHz) *:", freq_container)
 
         self._mode_combo = QComboBox()
         self._mode_combo.addItems(MODES)
@@ -284,6 +294,7 @@ class NewReportTab(QWidget):
         ref_layout.addWidget(ref_label)
         layout.addWidget(ref)
 
+        widget.setMaximumWidth(520)
         return widget
 
     def _build_form_row_map(self) -> None:
@@ -416,6 +427,88 @@ class NewReportTab(QWidget):
         if not self._dirty["target_region"] and data.get("target_region"):
             self._region_edit.setText(data["target_region"])
 
+    def has_unsaved_data(self) -> bool:
+        """True if the form contains meaningful content that has not been saved."""
+        return bool(
+            self._station_edit.text().strip()
+            or self._freq_edit.text().strip()
+            or self._programme_edit.toPlainText().strip()
+            or self._remarks_edit.toPlainText().strip()
+        )
+
+    def _on_freq_lookup(self) -> None:
+        freq_text = self._freq_edit.text().strip()
+        if not freq_text:
+            QMessageBox.information(self, "Frequency Lookup", "Enter a frequency in kHz first.")
+            return
+        try:
+            freq = float(freq_text)
+        except ValueError:
+            QMessageBox.warning(self, "Frequency Lookup", "Not a valid frequency value.")
+            return
+
+        stations = eibi_importer.get_eibi_stations_for_frequency(freq)
+        if not stations:
+            QMessageBox.information(
+                self, "Frequency Lookup",
+                f"No stations found at {freq} kHz (±1 kHz) in the EIBI database.\n\n"
+                "Try downloading the latest schedule in the Station Database tab.",
+            )
+            return
+
+        if len(stations) == 1:
+            self._apply_freq_result(stations[0])
+            return
+
+        # Multiple matches — let the user pick
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Stations at {freq} kHz")
+        dlg.resize(520, 320)
+        vbox = QVBoxLayout(dlg)
+        vbox.addWidget(QLabel(
+            f"{len(stations)} station(s) found at {freq} kHz — select one to fill the form:"
+        ))
+        lst = QListWidget()
+        for s in stations:
+            parts = [s.get("station_name", "")]
+            if s.get("language"):
+                parts.append(s["language"])
+            if s.get("target_region"):
+                parts.append(s["target_region"])
+            start = s.get("start_time_utc", "")
+            end = s.get("end_time_utc", "")
+            if start or end:
+                parts.append(f"{start}–{end} UTC")
+            if s.get("days"):
+                parts.append(s["days"])
+            lst.addItem(" · ".join(parts))
+        lst.setCurrentRow(0)
+        lst.itemDoubleClicked.connect(lambda _: dlg.accept())
+        vbox.addWidget(lst)
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        vbox.addWidget(btns)
+
+        if dlg.exec_() == QDialog.Accepted:
+            row = lst.currentRow()
+            if row >= 0:
+                self._apply_freq_result(stations[row])
+
+    def _apply_freq_result(self, station: dict) -> None:
+        """Fill form fields from a frequency-lookup result (explicit user action)."""
+        if station.get("station_name"):
+            self._station_edit.setText(station["station_name"])
+        if station.get("language"):
+            self._lang_edit.setText(station["language"])
+            self._dirty["language"] = True
+        if station.get("target_region"):
+            self._region_edit.setText(station["target_region"])
+            self._dirty["target_region"] = True
+        if station.get("transmitter_site"):
+            self._txsite_edit.setText(station["transmitter_site"])
+        self._dirty["frequency"] = True
+
     def _on_clear(self) -> None:
         """Reset the form and clear all dirty flags."""
         self._station_edit.clear()
@@ -488,6 +581,9 @@ class NewReportTab(QWidget):
 
         lines = [cfg.salutation, "", cfg.preamble, ""]
 
+        if entry.report_number > 0:
+            lines.append(f"Report Number: #{entry.report_number:04d}")
+
         def add(label: str, value: str, key: Optional[str] = None) -> None:
             if key is None or (visible.get(key, True) and value):
                 lines.append(f"{label}: {value}")
@@ -530,23 +626,25 @@ class NewReportTab(QWidget):
         if not self._validate():
             return
         entry = self._build_report_entry()
+        entry.report_number = log_store.get_next_report_number()
         entry.status = "Draft"
         log_store.save_report(entry)
         self.refresh_autocomplete()
-        QMessageBox.information(self, "Saved", "Report saved to log as Draft.")
+        QMessageBox.information(self, "Saved", f"Report #{entry.report_number:04d} saved to log as Draft.")
 
     def _on_copy(self) -> None:
         if not self._validate():
             return
         entry = self._build_report_entry()
+        entry.report_number = log_store.get_next_report_number()
         text = self._compose_report_text(entry)
         QApplication.clipboard().setText(text)
-        # Also save to log so copied reports are never silently lost
         entry.status = "Draft"
         log_store.save_report(entry)
         self.refresh_autocomplete()
         QMessageBox.information(
-            self, "Copied", "Report copied to clipboard and saved to log as Draft."
+            self, "Copied",
+            f"Report #{entry.report_number:04d} copied to clipboard and saved to log as Draft.",
         )
 
     def _on_send(self) -> None:
@@ -563,6 +661,7 @@ class NewReportTab(QWidget):
             return
 
         entry = self._build_report_entry()
+        entry.report_number = log_store.get_next_report_number()
         text = self._compose_report_text(entry)
         subject = f"Reception Report – {entry.station_name} {entry.date_utc}"
 
@@ -579,5 +678,5 @@ class NewReportTab(QWidget):
             entry.recipient_email = recipient
             entry.status = "Sent"
             log_store.save_report(entry)
-            QMessageBox.information(self, "Sent", "Report saved to log as Sent.")
+            QMessageBox.information(self, "Sent", f"Report #{entry.report_number:04d} saved to log as Sent.")
             self.refresh_autocomplete()

@@ -301,6 +301,29 @@ def get_eibi_station_names() -> list[str]:
     return [r["station_name"] for r in rows]
 
 
+def get_eibi_stations_for_frequency(freq_khz: float, tolerance: float = 1.0) -> list[dict]:
+    """
+    Return unique stations (grouped by name) from the EIBI database
+    broadcasting within ±tolerance kHz of freq_khz.
+    """
+    conn = get_connection()
+    rows = conn.execute(
+        """SELECT station_name,
+                  MAX(language)         AS language,
+                  MAX(target_region)    AS target_region,
+                  MAX(transmitter_site) AS transmitter_site,
+                  MIN(start_time_utc)   AS start_time_utc,
+                  MAX(end_time_utc)     AS end_time_utc,
+                  MAX(days)             AS days
+           FROM eibi_stations
+           WHERE ABS(frequency - ?) <= ?
+           GROUP BY station_name
+           ORDER BY station_name""",
+        (freq_khz, tolerance),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_eibi_data_for_station(name: str) -> Optional[dict]:
     """
     Return the first matching EIBI row for a station name (for autofill).
