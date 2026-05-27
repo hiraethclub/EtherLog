@@ -291,6 +291,10 @@ class LogTab(QWidget):
         self._edit_btn.setEnabled(False)
         self._edit_btn.clicked.connect(self._on_edit)
         btn_row.addWidget(self._edit_btn)
+        self._delete_btn = QPushButton("Delete Entry")
+        self._delete_btn.setEnabled(False)
+        self._delete_btn.clicked.connect(self._on_delete)
+        btn_row.addWidget(self._delete_btn)
         btn_row.addStretch()
 
         splitter.addWidget(detail_widget)
@@ -362,9 +366,11 @@ class LogTab(QWidget):
         if r is None:
             self._detail.clear()
             self._edit_btn.setEnabled(False)
+            self._delete_btn.setEnabled(False)
             return
         self._detail.setPlainText(self._format_detail(r))
         self._edit_btn.setEnabled(True)
+        self._delete_btn.setEnabled(True)
 
     def _on_edit(self) -> None:
         r = self._selected_report()
@@ -418,6 +424,23 @@ class LogTab(QWidget):
         lines.append(f"\nCreated: {r.created_at}")
         return "\n".join(lines)
 
+    def _on_delete(self) -> None:
+        r = self._selected_report()
+        if r is None:
+            return
+        answer = QMessageBox.question(
+            self, "Delete Entry",
+            f"Delete the log entry for {r.station_name} on {r.date_utc}?\n\nThis cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer == QMessageBox.Yes:
+            log_store.delete_report(r.id)
+            self._detail.clear()
+            self._edit_btn.setEnabled(False)
+            self._delete_btn.setEnabled(False)
+            self.refresh()
+
     def _on_context_menu(self, pos) -> None:
         r = self._selected_report()
         if r is None:
@@ -426,6 +449,7 @@ class LogTab(QWidget):
         menu = QMenu(self)
 
         edit_act = menu.addAction("Edit…")
+        delete_act = menu.addAction("Delete")
         menu.addSeparator()
         resend_act = menu.addAction("Resend")
         template_act = menu.addAction("Use as Template")
@@ -436,6 +460,8 @@ class LogTab(QWidget):
         action = menu.exec_(self._table.viewport().mapToGlobal(pos))
         if action == edit_act:
             self._on_edit()
+        elif action == delete_act:
+            self._on_delete()
         elif action == resend_act:
             self._resend(r)
         elif action == template_act:
