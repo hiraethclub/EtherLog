@@ -6,16 +6,19 @@ via threading.local() so that SQLite's thread-isolation guarantees are
 respected without having to serialize every query through a single mutex.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import threading
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
 _local = threading.local()
-_db_path: Path | None = None
+_db_path: Optional[Path] = None
 
 
 def init_db(db_path: Path) -> None:

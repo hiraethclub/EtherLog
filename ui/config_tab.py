@@ -7,6 +7,10 @@ Visible Fields, EIBI Autofill, SMTP Settings, Appearance.
 Changes are saved immediately.  SMTP password uses keyring with file fallback.
 """
 
+from __future__ import annotations
+
+from typing import Optional
+
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
     QLineEdit, QTextEdit, QPushButton, QCheckBox, QComboBox,
@@ -25,7 +29,7 @@ from email_handler import TestConnectionWorker
 class ProfileDialog(QDialog):
     """Add or edit a sender profile."""
 
-    def __init__(self, profile: SenderProfile | None = None, parent=None):
+    def __init__(self, profile: Optional[SenderProfile] = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Sender Profile" if profile else "Add Sender Profile")
         layout = QVBoxLayout(self)
@@ -67,10 +71,10 @@ class ProfileDialog(QDialog):
 class ConfigTab(QWidget):
     config_changed = pyqtSignal(object)  # emits updated AppConfig
 
-    def __init__(self, app_config: AppConfig, parent: QWidget | None = None):
+    def __init__(self, app_config: AppConfig, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._config = app_config
-        self._test_worker: TestConnectionWorker | None = None
+        self._test_worker: Optional[TestConnectionWorker] = None
         self._keyring_ok = cfg_module.keyring_available()
         # Suppress _save() while _load_into_ui() is running.  Without this,
         # textChanged / stateChanged signals fire during programmatic widget
@@ -255,11 +259,20 @@ class ConfigTab(QWidget):
         form.addRow("Password:", self._smtp_pass)
 
         if not self._keyring_ok:
-            warn = QLabel(
-                "<b>Warning:</b> Secure keychain storage is unavailable on this system. "
-                "The password will be stored in the config file if you choose to save it. "
-                "See README for details."
-            )
+            import config as _cfg
+            if not _cfg._KEYRING_IMPORTABLE:
+                warn_text = (
+                    "<b>keyring not installed.</b> Run <code>pip install keyring</code> "
+                    "to enable secure password storage. Until then the password will be "
+                    "stored in the config file with your explicit consent."
+                )
+            else:
+                warn_text = (
+                    "<b>Warning:</b> Secure keychain storage is unavailable on this system. "
+                    "The password will be stored in the config file if you choose to save it. "
+                    "See README for details."
+                )
+            warn = QLabel(warn_text)
             warn.setWordWrap(True)
             warn.setStyleSheet("color: #a0522d; background: #fff8dc; padding: 4px;")
             form.addRow("", warn)
@@ -350,7 +363,7 @@ class ConfigTab(QWidget):
             item.setData(Qt.UserRole, p.id)
             self._profile_list.addItem(item)
 
-    def _selected_profile_id(self) -> int | None:
+    def _selected_profile_id(self) -> Optional[int]:
         item = self._profile_list.currentItem()
         return item.data(Qt.UserRole) if item else None
 

@@ -5,6 +5,8 @@ Searchable, filterable table of all saved reception reports with full detail
 panel, context menu, and CSV export.
 """
 
+from __future__ import annotations
+
 import csv
 import io
 from datetime import datetime, timezone
@@ -31,7 +33,7 @@ _MODE_OPTIONS = ["All", "AM", "FM", "USB", "LSB", "CW", "DRM", "Other"]
 class LogTab(QWidget):
     use_as_template = pyqtSignal(object)  # emits ReportEntry
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._reports: List[ReportEntry] = []
         self._build_ui()

@@ -10,12 +10,22 @@ using the `keyring` library.  If keyring is unavailable the module falls back
 to file storage only after explicit user consent.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
+from typing import Optional
 
-import keyring
-import keyring.errors
+# keyring is an optional dependency.  If it is not installed the app still
+# starts and falls back to file-based password storage with user consent.
+try:
+    import keyring
+    _KEYRING_IMPORTABLE = True
+except ImportError:
+    keyring = None  # type: ignore[assignment]
+    _KEYRING_IMPORTABLE = False
+
 from platformdirs import user_config_dir
 
 from models import AppConfig, SMTPConfig, SenderProfile
@@ -165,18 +175,18 @@ def save_config(cfg: AppConfig) -> None:
 # Keyring helpers
 # ---------------------------------------------------------------------------
 
-def load_smtp_password(fallback_cfg: AppConfig | None = None) -> str:
+def load_smtp_password(fallback_cfg: Optional[AppConfig] = None) -> str:
     """Return the SMTP password from keyring, or from config file fallback."""
-    try:
-        pwd = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME)
-        return pwd or ""
-    except BaseException as exc:
-        # Catch BaseException because some keyring backends (e.g. SecretService
-        # via a Rust/pyo3 extension) raise PanicException which does not inherit
-        # from Exception.
-        log.warning("keyring unavailable (%s); trying file fallback.", exc)
+    if _KEYRING_IMPORTABLE:
+        try:
+            pwd = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME)
+            return pwd or ""
+        except BaseException as exc:
+            # Catch BaseException: some backends (SecretService via pyo3) raise
+            # PanicException which does not inherit from Exception.
+            log.warning("keyring unavailable (%s); trying file fallback.", exc)
 
-    # File fallback: password was stored directly in config under smtp.password
+    # File fallback: password stored directly in config JSON
     if fallback_cfg is not None and fallback_cfg.password_fallback:
         path = get_config_path()
         try:
@@ -195,11 +205,12 @@ def save_smtp_password(password: str, use_fallback: bool = False) -> bool:
     (only after the user has explicitly consented – the caller is responsible
     for setting use_fallback=True only after confirmation).
     """
-    try:
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME, password)
-        return True
-    except BaseException as exc:
-        log.warning("keyring save failed (%s).", exc)
+    if _KEYRING_IMPORTABLE:
+        try:
+            keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME, password)
+            return True
+        except BaseException as exc:
+            log.warning("keyring save failed (%s).", exc)
 
     if use_fallback:
         path = get_config_path()
@@ -218,7 +229,12 @@ def save_smtp_password(password: str, use_fallback: bool = False) -> bool:
 
 
 def keyring_available() -> bool:
-    """Quick probe: can keyring round-trip a dummy value?"""
+    """
+    Quick probe: is keyring installed AND able to round-trip a value?
+    Returns False if keyring is not installed or the backend is broken.
+    """
+    if not _KEYRING_IMPORTABLE:
+        return False
     try:
         keyring.set_password(_KEYRING_SERVICE, "__probe__", "1")
         keyring.delete_password(_KEYRING_SERVICE, "__probe__")

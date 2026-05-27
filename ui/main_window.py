@@ -5,6 +5,8 @@ Contains a four-tab interface (New Report, Log, Station Database, Configuration)
 and a persistent UTC clock in the status bar updated every second.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 
 from PyQt5.QtWidgets import (

@@ -5,6 +5,8 @@ All network operations run in QThread workers so the UI never blocks.
 Signals carry success/failure back to the main thread for display.
 """
 
+from __future__ import annotations
+
 import smtplib
 import ssl
 import logging

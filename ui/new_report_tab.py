@@ -5,7 +5,10 @@ Handles the reception report form, SINPO entry, EIBI autofill with dirty-flag
 protection, clipboard copy, and the Send via Email dialog.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import Optional
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
@@ -64,7 +67,7 @@ QSL_OPTIONS = ["eQSL", "Physical card", "Either"]
 
 
 class NewReportTab(QWidget):
-    def __init__(self, app_config: AppConfig, parent: QWidget | None = None):
+    def __init__(self, app_config: AppConfig, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._config = app_config
 
@@ -480,7 +483,7 @@ class NewReportTab(QWidget):
 
         lines = [cfg.salutation, "", cfg.preamble, ""]
 
-        def add(label: str, value: str, key: str | None = None) -> None:
+        def add(label: str, value: str, key: Optional[str] = None) -> None:
             if key is None or (visible.get(key, True) and value):
                 lines.append(f"{label}: {value}")
 

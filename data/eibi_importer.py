@@ -14,6 +14,8 @@ Strategy:
 All work runs inside a QThread worker; signals report progress and completion.
 """
 
+from __future__ import annotations
+
 import csv
 import io
 import logging

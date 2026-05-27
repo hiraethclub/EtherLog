@@ -6,6 +6,10 @@ Provides editable recipient address, subject, full body preview, and a Send
 button that dispatches via a QThread worker.
 """
 
+from __future__ import annotations
+
+from typing import Optional
+
 from PyQt5.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
     QMessageBox, QPushButton, QTextEdit, QVBoxLayout, QWidget,
@@ -25,7 +29,7 @@ class SendDialog(QDialog):
         body: str,
         app_config: AppConfig,
         from_addr: str,
-        parent: QWidget | None = None,
+        parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Send Report via Email")
@@ -33,7 +37,7 @@ class SendDialog(QDialog):
 
         self._app_config = app_config
         self._from_addr = from_addr
-        self._worker: SendEmailWorker | None = None
+        self._worker: Optional[SendEmailWorker] = None
 
         layout = QVBoxLayout(self)
 

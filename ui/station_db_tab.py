@@ -5,6 +5,10 @@ Displays EIBI shortwave schedule data with search/filter, bulk update via
 QThread worker, manual station entry, and last-update timestamp.
 """
 
+from __future__ import annotations
+
+from typing import Optional
+
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QTableWidget, QTableWidgetItem, QHeaderView, QPushButton,
@@ -25,7 +29,7 @@ _COLUMNS = [
 
 
 class AddStationDialog(QDialog):
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Add Custom Station")
 
@@ -73,10 +77,10 @@ class AddStationDialog(QDialog):
 
 
 class StationDbTab(QWidget):
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._all_rows: list[dict] = []
-        self._worker: EIBIUpdateWorker | None = None
+        self._worker: Optional[EIBIUpdateWorker] = None
         self._build_ui()
         self._load_data()
 
