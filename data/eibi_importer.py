@@ -34,6 +34,12 @@ from data.database import get_connection, set_meta
 log = logging.getLogger(__name__)
 
 EIBI_BASE_URL = "http://www.eibispace.de"
+# Try HTTPS first; many sites redirect HTTP→HTTPS which urllib follows anyway,
+# but starting with HTTPS avoids an extra round-trip on modern servers.
+_EIBI_INDEX_URLS = [
+    "https://www.eibispace.de",
+    "http://www.eibispace.de",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -57,15 +63,29 @@ def _current_season_filename() -> str:
 
 def _parse_index_for_csv_link(html: str) -> Optional[str]:
     """
-    Extract the href of the first .csv link on the EIBI index page.
-    Returns just the filename (e.g. 'sked-a25.csv'), or None if not found.
+    Extract the href of the first sked CSV link on the EIBI index page.
+
+    The href may be a bare filename ('sked-a26.csv') or include a path prefix
+    ('dx/sked-a26.csv', '/dx/sked-a26.csv').  We capture whatever comes before
+    the filename so the caller can join it with the base URL correctly.
     """
-    # Look for href="sked-X##.csv" (case-insensitive)
-    pattern = re.compile(r'href="(sked-[abAB]\d{2}\.csv)"', re.IGNORECASE)
+    # Capture the full href value as long as it ends in sked-X##.csv
+    pattern = re.compile(r'href="([^"]*sked-[abAB]\d{2}\.csv)"', re.IGNORECASE)
     match = pattern.search(html)
     if match:
-        return match.group(1)
+        return match.group(1)  # may be "sked-a26.csv" or "dx/sked-a26.csv" etc.
     return None
+
+
+def _make_absolute(base: str, href: str) -> str:
+    """Join a base URL with a relative href, handling leading slashes."""
+    if href.startswith(("http://", "https://")):
+        return href
+    if href.startswith("/"):
+        # Absolute path on the same host
+        proto_host = "/".join(base.split("/")[:3])  # "https://www.eibispace.de"
+        return proto_host + href
+    return base.rstrip("/") + "/" + href
 
 
 def _download_text(url: str, encoding: str = "utf-8") -> str:
@@ -82,21 +102,55 @@ def _download_text(url: str, encoding: str = "utf-8") -> str:
 def resolve_eibi_csv_url() -> str:
     """
     Return the full URL of the current EIBI season CSV.
-    Tries to parse the index page first; falls back to a constructed filename.
-    """
-    try:
-        html = _download_text(EIBI_BASE_URL)
-        filename = _parse_index_for_csv_link(html)
-        if filename:
-            log.info("EIBI: found CSV link on index page: %s", filename)
-            return f"{EIBI_BASE_URL}/{filename}"
-    except Exception as exc:
-        log.warning("EIBI: index page parse failed (%s); using constructed filename.", exc)
 
-    # Fallback: construct filename from current UTC date
+    Strategy:
+      1. Try fetching the EIBI index page (HTTPS then HTTP) and parse it for a
+         CSV link.  The href may include a subdirectory (e.g. 'dx/sked-a26.csv').
+      2. If the index page is unreachable or yields no match, construct the
+         expected filename from today's UTC date and try it at both the root and
+         the 'dx/' subdirectory.  Return the first URL that doesn't 404.
+      3. If all probes fail, return the best guess so the caller can surface a
+         meaningful error to the user.
+    """
+    # Step 1: parse the index page
+    for base in _EIBI_INDEX_URLS:
+        try:
+            html = _download_text(base)
+            href = _parse_index_for_csv_link(html)
+            if href:
+                url = _make_absolute(base, href)
+                log.info("EIBI: found CSV link on index page: %s", url)
+                return url
+            log.warning("EIBI: index page fetched from %s but no CSV link found.", base)
+        except Exception as exc:
+            log.warning("EIBI: index page fetch from %s failed (%s).", base, exc)
+
+    # Step 2: construct likely filenames and probe each candidate URL
     filename = _current_season_filename()
-    log.info("EIBI: using constructed filename: %s", filename)
-    return f"{EIBI_BASE_URL}/{filename}"
+    log.info("EIBI: index parse failed; trying constructed filename %s", filename)
+
+    candidates = [
+        f"{EIBI_BASE_URL}/{filename}",
+        f"{EIBI_BASE_URL}/dx/{filename}",
+        f"https://www.eibispace.de/{filename}",
+        f"https://www.eibispace.de/dx/{filename}",
+    ]
+    for url in candidates:
+        try:
+            req = urllib.request.Request(
+                url,
+                method="HEAD",
+                headers={"User-Agent": "EtherLog/1.0 (shortwave reception logger)"},
+            )
+            urllib.request.urlopen(req, timeout=10)
+            log.info("EIBI: candidate URL is reachable: %s", url)
+            return url
+        except Exception:
+            log.debug("EIBI: candidate not reachable: %s", url)
+
+    # Step 3: nothing worked — return first candidate; caller will show 404 error
+    log.warning("EIBI: all candidate URLs failed; returning %s as best guess.", candidates[0])
+    return candidates[0]
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +347,7 @@ class EIBIUpdateWorker(QThread):
     error = pyqtSignal(str)
 
     def run(self) -> None:
+        url = ""
         try:
             self.progress.emit("Resolving EIBI download URL…")
             url = resolve_eibi_csv_url()
@@ -308,10 +363,21 @@ class EIBIUpdateWorker(QThread):
             count = import_eibi_rows(rows)
 
             self.finished.emit(count)
+        except urllib.error.HTTPError as exc:
+            # HTTPError is a subclass of URLError; catch it first for a clearer message.
+            self.error.emit(
+                f"EIBI server returned HTTP {exc.code} ({exc.reason}).\n\n"
+                f"The file may not exist at the expected URL, or the EIBI website "
+                f"structure may have changed.\n\n"
+                f"URL tried: {url}\n\n"
+                f"You can visit http://www.eibispace.de in a browser to find the "
+                f"correct download link and report the issue."
+            )
         except urllib.error.URLError as exc:
             self.error.emit(
-                f"Could not download EIBI data.\n\n"
-                f"Check your internet connection.\n\nDetail: {exc.reason}"
+                f"Could not reach the EIBI website.\n\n"
+                f"Check your internet connection and try again.\n\n"
+                f"Detail: {exc.reason}"
             )
         except Exception as exc:  # noqa: BLE001
             log.exception("EIBI update failed")
