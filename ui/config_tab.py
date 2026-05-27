@@ -72,8 +72,15 @@ class ConfigTab(QWidget):
         self._config = app_config
         self._test_worker: TestConnectionWorker | None = None
         self._keyring_ok = cfg_module.keyring_available()
+        # Suppress _save() while _load_into_ui() is running.  Without this,
+        # textChanged / stateChanged signals fire during programmatic widget
+        # population and write half-initialised values back into self._config
+        # (e.g. eibi_autofill gets set to False because the checkbox hasn't
+        # been set to True yet when the preamble text field emits textChanged).
+        self._loading = True
         self._build_ui()
         self._load_into_ui()
+        self._loading = False
 
     # ------------------------------------------------------------------
     # UI construction
@@ -420,6 +427,8 @@ class ConfigTab(QWidget):
         return cfg
 
     def _save(self) -> None:
+        if self._loading:
+            return
         cfg = self._collect_config()
         cfg_module.save_config(cfg)
         self.config_changed.emit(cfg)

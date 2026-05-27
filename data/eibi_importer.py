@@ -105,11 +105,12 @@ def parse_eibi_csv(csv_text: str) -> list[dict]:
     """
     Parse EIBI CSV into a list of dicts.
 
-    EIBI CSV format (latin-1, semicolon-delimited):
-      Frequency;Start;Stop;Days;Country;Target;Language;TxSite;Station;...
+    Standard EIBI format (latin-1, semicolon-delimited, 14 columns):
+      kHz;ITU;Start;Stop;Days;Country;Target;Language;TxSite;Remarks;P;StartDate;StopDate;Programme
 
-    Column indices may vary by season; we match by header name when present,
-    otherwise fall back to positional parsing.
+    The broadcaster/station name is the last column, labelled 'Programme' in the
+    header (not 'Station' or 'Name').  Column count can vary between seasons, so
+    we also handle headerless files with a positional fallback.
     """
     rows = []
     reader = csv.reader(io.StringIO(csv_text), delimiter=";")
@@ -142,18 +143,32 @@ def parse_eibi_csv(csv_text: str) -> list[dict]:
                 language = col("language") or col("lang")
                 target = col("target") or col("area")
                 txsite = col("txsite") or col("site")
-                station = col("station") or col("name")
+                # EIBI uses 'Programme' for the broadcaster name, not 'Station'
+                station = (
+                    col("programme")
+                    or col("broadcaster")
+                    or col("station")
+                    or col("name")
+                )
             else:
-                # Positional fallback: kHz;Start;Stop;Days;Country;Target;Lang;TxSite;Station
+                # Positional fallback for the standard 14-column EIBI format:
+                #   0=kHz  1=ITU  2=Start  3=Stop  4=Days  5=Country  6=Target
+                #   7=Language  8=TxSite  9=Remarks  10=P  11=StartDate
+                #   12=StopDate  13=Programme (broadcaster/station name)
                 freq_str = raw_row[0].strip()
-                start = raw_row[1].strip() if len(raw_row) > 1 else ""
-                stop = raw_row[2].strip() if len(raw_row) > 2 else ""
-                days = raw_row[3].strip() if len(raw_row) > 3 else ""
-                # index 4 = country (skip)
-                target = raw_row[5].strip() if len(raw_row) > 5 else ""
-                language = raw_row[6].strip() if len(raw_row) > 6 else ""
-                txsite = raw_row[7].strip() if len(raw_row) > 7 else ""
-                station = raw_row[8].strip() if len(raw_row) > 8 else ""
+                start = raw_row[2].strip() if len(raw_row) > 2 else ""
+                stop = raw_row[3].strip() if len(raw_row) > 3 else ""
+                days = raw_row[4].strip() if len(raw_row) > 4 else ""
+                target = raw_row[6].strip() if len(raw_row) > 6 else ""
+                language = raw_row[7].strip() if len(raw_row) > 7 else ""
+                txsite = raw_row[8].strip() if len(raw_row) > 8 else ""
+                # Station name at index 13 (14-col format) or last column otherwise
+                if len(raw_row) > 13:
+                    station = raw_row[13].strip()
+                elif len(raw_row) > 9:
+                    station = raw_row[-1].strip()
+                else:
+                    station = ""
 
             try:
                 freq = float(freq_str)
