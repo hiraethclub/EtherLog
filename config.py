@@ -170,7 +170,10 @@ def load_smtp_password(fallback_cfg: AppConfig | None = None) -> str:
     try:
         pwd = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME)
         return pwd or ""
-    except Exception as exc:
+    except BaseException as exc:
+        # Catch BaseException because some keyring backends (e.g. SecretService
+        # via a Rust/pyo3 extension) raise PanicException which does not inherit
+        # from Exception.
         log.warning("keyring unavailable (%s); trying file fallback.", exc)
 
     # File fallback: password was stored directly in config under smtp.password
@@ -195,7 +198,7 @@ def save_smtp_password(password: str, use_fallback: bool = False) -> bool:
     try:
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME, password)
         return True
-    except Exception as exc:
+    except BaseException as exc:
         log.warning("keyring save failed (%s).", exc)
 
     if use_fallback:
@@ -220,7 +223,9 @@ def keyring_available() -> bool:
         keyring.set_password(_KEYRING_SERVICE, "__probe__", "1")
         keyring.delete_password(_KEYRING_SERVICE, "__probe__")
         return True
-    except Exception:
+    except BaseException:
+        # BaseException (not just Exception) is required: some backends raise
+        # pyo3_runtime.PanicException when native libraries are missing.
         return False
 
 
