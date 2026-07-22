@@ -137,6 +137,13 @@ class EditReportDialog(QDialog):
         self._remarks.setFixedHeight(70)
         self._form.addRow("Remarks:", self._remarks)
 
+        self._station_address = QTextEdit()
+        self._station_address.setFixedHeight(70)
+        self._station_address.setPlaceholderText(
+            "Postal mailing address, used when printing an airmail QSL label."
+        )
+        self._form.addRow("Station Postal Address:", self._station_address)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
@@ -182,6 +189,7 @@ class EditReportDialog(QDialog):
         self._interference.setText(e.interference)
         self._programme.setPlainText(e.programme_details)
         self._remarks.setPlainText(e.remarks)
+        self._station_address.setPlainText(e.station_address)
 
     def _on_save(self) -> None:
         if not self._station.text().strip():
@@ -211,6 +219,7 @@ class EditReportDialog(QDialog):
         e.interference = self._interference.text().strip()
         e.programme_details = self._programme.toPlainText().strip()
         e.remarks = self._remarks.toPlainText().strip()
+        e.station_address = self._station_address.toPlainText().strip()
         log_store.update_report(e)
         self.accept()
 
@@ -304,6 +313,13 @@ class LogTab(QWidget):
         self._delete_btn.setEnabled(False)
         self._delete_btn.clicked.connect(self._on_delete)
         btn_row.addWidget(self._delete_btn)
+        self._label_btn = QPushButton("Print Airmail Label…")
+        self._label_btn.setEnabled(False)
+        self._label_btn.setToolTip(
+            "Create a printable airmail address label for this station's QSL postcard"
+        )
+        self._label_btn.clicked.connect(self._on_print_label)
+        btn_row.addWidget(self._label_btn)
         btn_row.addStretch()
 
         splitter.addWidget(detail_widget)
@@ -387,10 +403,12 @@ class LogTab(QWidget):
             self._detail.clear()
             self._edit_btn.setEnabled(False)
             self._delete_btn.setEnabled(False)
+            self._label_btn.setEnabled(False)
             return
         self._detail.setPlainText(self._format_detail(r))
         self._edit_btn.setEnabled(True)
         self._delete_btn.setEnabled(True)
+        self._label_btn.setEnabled(True)
 
     def _on_edit(self) -> None:
         r = self._selected_report()
@@ -403,6 +421,21 @@ class LogTab(QWidget):
             updated = log_store.get_report_by_id(r.id)
             if updated:
                 self._detail.setPlainText(self._format_detail(updated))
+
+    def _on_print_label(self) -> None:
+        r = self._selected_report()
+        if r is None:
+            return
+        self._print_label(r)
+
+    def _print_label(self, r: ReportEntry) -> None:
+        """Open the airmail QSL label composer for the given report."""
+        from ui.label import AirmailLabelDialog
+        from data.log_store import get_active_profile
+
+        profile = get_active_profile()
+        dlg = AirmailLabelDialog(r, profile=profile, parent=self)
+        dlg.exec_()
 
     def _format_detail(self, r: ReportEntry) -> str:
         num = f"#{r.report_number:04d}" if r.report_number else "—"
@@ -439,6 +472,8 @@ class LogTab(QWidget):
             lines.append(f"Fading:           {r.fading}")
         if r.interference:
             lines.append(f"Interference:     {r.interference}")
+        if r.station_address:
+            lines.append(f"\nStation Postal Address:\n{r.station_address}")
         if r.programme_details:
             lines.append(f"\nProgramme Details:\n{r.programme_details}")
         if r.remarks:
@@ -461,6 +496,7 @@ class LogTab(QWidget):
             self._detail.clear()
             self._edit_btn.setEnabled(False)
             self._delete_btn.setEnabled(False)
+            self._label_btn.setEnabled(False)
             self.refresh()
 
     def _on_context_menu(self, pos) -> None:
@@ -476,6 +512,7 @@ class LogTab(QWidget):
         resend_act = menu.addAction("Resend")
         template_act = menu.addAction("Use as Template")
         qsl_act = menu.addAction("Mark as QSL Received")
+        label_act = menu.addAction("Print Airmail Label…")
         menu.addSeparator()
         export_act = menu.addAction("Export Selected to CSV")
 
@@ -486,6 +523,8 @@ class LogTab(QWidget):
             self._on_delete()
         elif action == resend_act:
             self._resend(r)
+        elif action == label_act:
+            self._print_label(r)
         elif action == template_act:
             self.use_as_template.emit(r)
         elif action == qsl_act:

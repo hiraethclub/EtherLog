@@ -11,6 +11,7 @@ log, and send electronic reception reports (eQSL).  Built with Python and PyQt5.
 - Station autocomplete from EIBI schedule data and your own report history
 - EIBI autofill for frequency, language, and target region
 - Searchable, filterable report log with CSV export
+- Printable airmail QSL address labels for postcard-based reception reports
 - Built-in EIBI shortwave schedule database (updated on demand)
 - SMTP email sending with full body preview
 - Secure SMTP password storage via system keychain
@@ -63,6 +64,30 @@ in EtherLog's Configuration → SMTP Settings:
 
 Bridge handles encryption itself; EtherLog connects to it on localhost without
 an additional TLS wrapper.
+
+---
+
+## Printing Airmail QSL Labels
+
+For reception reports you post as physical QSL cards, EtherLog can generate a
+self-adhesive airmail address label to stick on the postcard.
+
+1. Store the station's postal mailing address in the **Station Postal Address**
+   field on the New Report form (or in the Edit dialog on the Log tab).
+2. Enter your own return address in **Configuration → Sender Profiles → Return
+   Postal Address**.
+3. On the **Log** tab, select the report and click **Print Airmail Label…**
+   (also available from the right-click context menu).
+
+The label composer shows a live preview and lets you:
+
+- Edit the recipient and return addresses before printing.
+- Choose a label size (Standard 90×50 mm, Large, Small, or Square).
+- Toggle the classic red/blue **PAR AVION / BY AIR MAIL** border.
+- Include or omit the return address.
+- **Print…** to any connected printer, or **Save as PDF…** for later printing.
+
+The recipient address is sized automatically to fit the chosen label.
 
 ---
 

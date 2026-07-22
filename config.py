@@ -106,6 +106,7 @@ def _profile_to_dict(p: SenderProfile) -> dict:
         "email": p.email,
         "listener_number": p.listener_number,
         "is_active": p.is_active,
+        "postal_address": p.postal_address,
     }
 
 
@@ -117,6 +118,7 @@ def _profile_from_dict(d: dict) -> SenderProfile:
         email=d.get("email", ""),
         listener_number=d.get("listener_number", ""),
         is_active=bool(d.get("is_active", False)),
+        postal_address=d.get("postal_address", ""),
     )
 
 
