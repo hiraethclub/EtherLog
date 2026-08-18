@@ -9,8 +9,14 @@ on:
   push:
     tags:
       - "v*"
-  # Allow building the matrix by hand from the Actions tab without publishing.
+  # Manual trigger: builds the matrix and publishes a release, creating the
+  # given tag at the current commit. Used when a tag cannot be pushed directly.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to create and release (e.g. v1.0.0-beta.1)"
+        required: true
+        default: "v1.0.0-beta.1"
 
 permissions:
   contents: write
@@ -67,8 +73,6 @@ jobs:
     name: Publish release
     needs: build
     runs-on: ubuntu-latest
-    # Only publish when triggered by a pushed tag, not a manual dispatch.
-    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     steps:
@@ -81,17 +85,28 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ github.event.inputs.tag }}
+          COMMIT_SHA: ${{ github.sha }}
         shell: bash
         run: |
-          tag="${GITHUB_REF_NAME}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$DISPATCH_TAG"
+            # gh creates the tag at this commit when it does not yet exist.
+            target_flag=(--target "$COMMIT_SHA")
+          else
+            tag="${GITHUB_REF_NAME}"
+            target_flag=()
+          fi
           # Any tag with a hyphen (e.g. -beta, -rc) is treated as a pre-release.
-          prerelease_flag=""
+          prerelease_flag=()
           case "$tag" in
-            *-*) prerelease_flag="--prerelease" ;;
+            *-*) prerelease_flag=(--prerelease) ;;
           esac
           gh release create "$tag" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "EtherLog $tag" \
             --notes "Automated build of EtherLog \`$tag\` for Windows, macOS and Linux. Download the executable for your platform below." \
-            $prerelease_flag \
+            "${prerelease_flag[@]}" \
+            "${target_flag[@]}" \
             artifacts/*
