@@ -12,6 +12,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
+from version import APP_VERSION
+
 
 class AboutTab(QWidget):
     def __init__(self, parent: QWidget | None = None):
@@ -39,6 +41,14 @@ class AboutTab(QWidget):
         subtitle.setFont(sub_font)
         subtitle.setAlignment(Qt.AlignCenter)
         outer.addWidget(subtitle)
+
+        version_label = QLabel(f"Version {APP_VERSION}")
+        version_label.setAlignment(Qt.AlignCenter)
+        version_font = QFont()
+        version_font.setPointSize(10)
+        version_label.setFont(version_font)
+        version_label.setStyleSheet("color: gray;")
+        outer.addWidget(version_label)
 
         # Divider
         line = QFrame()

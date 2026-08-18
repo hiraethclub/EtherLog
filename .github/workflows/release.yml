@@ -1,0 +1,97 @@
+name: Release
+
+# Build standalone EtherLog executables for Windows, macOS and Linux and
+# publish them to a GitHub Release whenever a version tag (e.g. v1.0.0-beta.1)
+# is pushed. Tags containing a hyphen (pre-release identifiers such as -beta.1)
+# are published as GitHub pre-releases.
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Allow building the matrix by hand from the Actions tab without publishing.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_name: etherlog-linux-x86_64
+            binary: dist/etherlog
+          - os: windows-latest
+            asset_name: etherlog-windows-x86_64.exe
+            binary: dist/etherlog.exe
+          - os: macos-latest
+            asset_name: etherlog-macos-arm64
+            binary: dist/etherlog
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: pyinstaller etherlog.spec
+
+      - name: Stage artifact
+        shell: bash
+        run: |
+          mkdir -p out
+          cp "${{ matrix.binary }}" "out/${{ matrix.asset_name }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: out/${{ matrix.asset_name }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    # Only publish when triggered by a pushed tag, not a manual dispatch.
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          # Any tag with a hyphen (e.g. -beta, -rc) is treated as a pre-release.
+          prerelease_flag=""
+          case "$tag" in
+            *-*) prerelease_flag="--prerelease" ;;
+          esac
+          gh release create "$tag" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "EtherLog $tag" \
+            --notes "Automated build of EtherLog \`$tag\` for Windows, macOS and Linux. Download the executable for your platform below." \
+            $prerelease_flag \
+            artifacts/*
