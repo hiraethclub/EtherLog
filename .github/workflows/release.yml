@@ -2,8 +2,10 @@ name: Release
 
 # Build standalone EtherLog executables for Windows, macOS and Linux and
 # publish them to a GitHub Release whenever a version tag (e.g. v1.0.0-beta.1)
-# is pushed. Tags containing a hyphen (pre-release identifiers such as -beta.1)
-# are published as GitHub pre-releases.
+# is pushed. Each build is packaged as an archive (.zip on Windows, .tar.gz on
+# macOS/Linux) so every asset has a clear extension and the Unix executable bit
+# is preserved. Tags containing a hyphen (e.g. -beta.1) are published as
+# GitHub pre-releases.
 
 on:
   push:
@@ -30,13 +32,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset_name: etherlog-linux-x86_64
+            asset_name: etherlog-linux-x86_64.tar.gz
             binary: dist/etherlog
           - os: windows-latest
-            asset_name: etherlog-windows-x86_64.exe
+            asset_name: etherlog-windows-x86_64.zip
             binary: dist/etherlog.exe
           - os: macos-latest
-            asset_name: etherlog-macos-arm64
+            asset_name: etherlog-macos-arm64.tar.gz
             binary: dist/etherlog
     steps:
       - name: Check out source
@@ -56,11 +58,19 @@ jobs:
       - name: Build executable
         run: pyinstaller etherlog.spec
 
-      - name: Stage artifact
+      - name: Package artifact
         shell: bash
         run: |
           mkdir -p out
-          cp "${{ matrix.binary }}" "out/${{ matrix.asset_name }}"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp "${{ matrix.binary }}" etherlog.exe
+            # bsdtar ships on the Windows runner and writes a real .zip via -a.
+            tar -a -c -f "out/${{ matrix.asset_name }}" etherlog.exe
+          else
+            cp "${{ matrix.binary }}" etherlog
+            chmod +x etherlog
+            tar -czf "out/${{ matrix.asset_name }}" etherlog
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -92,21 +102,21 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             tag="$DISPATCH_TAG"
-            # gh creates the tag at this commit when it does not yet exist.
-            target_flag=(--target "$COMMIT_SHA")
           else
             tag="${GITHUB_REF_NAME}"
-            target_flag=()
           fi
           # Any tag with a hyphen (e.g. -beta, -rc) is treated as a pre-release.
           prerelease_flag=()
           case "$tag" in
             *-*) prerelease_flag=(--prerelease) ;;
           esac
+          # Make re-runs idempotent: drop an existing release (and its tag) for
+          # this version, then recreate the tag at the current commit.
+          gh release delete "$tag" --repo "${GITHUB_REPOSITORY}" --yes --cleanup-tag || true
           gh release create "$tag" \
             --repo "${GITHUB_REPOSITORY}" \
+            --target "$COMMIT_SHA" \
             --title "EtherLog $tag" \
-            --notes "Automated build of EtherLog \`$tag\` for Windows, macOS and Linux. Download the executable for your platform below." \
+            --notes "Automated build of EtherLog \`$tag\` for Windows, macOS and Linux. Download the archive for your platform below." \
             "${prerelease_flag[@]}" \
-            "${target_flag[@]}" \
             artifacts/*

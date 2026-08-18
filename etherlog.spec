@@ -24,6 +24,11 @@ block_cipher = None
 
 _keyring_hidden = [
     "platformdirs",
+    # UI modules imported lazily inside methods (function-level imports),
+    # which PyInstaller's static analysis can otherwise miss.
+    "ui.label",
+    "ui.send_dialog",
+    "ui.theme",
     # Windows – uses the Windows Credential Manager
     "keyring.backends.Windows",
     # macOS – uses the macOS Keychain
