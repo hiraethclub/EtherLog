@@ -211,6 +211,14 @@ class NewReportTab(QWidget):
         self._remarks_edit.setFixedHeight(80)
         form.addRow("Remarks:", self._remarks_edit)
 
+        self._station_addr_edit = QTextEdit()
+        self._station_addr_edit.setFixedHeight(80)
+        self._station_addr_edit.setPlaceholderText(
+            "Station's postal mailing address, used when printing an airmail QSL "
+            "label from the Log tab."
+        )
+        form.addRow("Station Postal Address:", self._station_addr_edit)
+
         # Map field keys → their QWidget for bulk show/hide
         self._optional_widgets: dict[str, list[QWidget]] = {
             "language": [self._lang_edit],
@@ -226,6 +234,7 @@ class NewReportTab(QWidget):
             "interference": [self._interference_edit],
             "programme_details": [self._programme_edit],
             "remarks": [self._remarks_edit],
+            "station_address": [self._station_addr_edit],
         }
 
         # Keep references to form-row labels for show/hide
@@ -316,7 +325,7 @@ class NewReportTab(QWidget):
             "language", "target_region", "transmitter_site", "receiver",
             "antenna", "software", "operating_system", "qsl_preference",
             "listener_number", "fading", "interference",
-            "programme_details", "remarks",
+            "programme_details", "remarks", "station_address",
         ]
         # Required rows come first (station, freq, mode, date, time, sinpo = 6)
         for i, key in enumerate(key_order):
@@ -380,6 +389,7 @@ class NewReportTab(QWidget):
         self._interference_edit.setText(entry.interference)
         self._programme_edit.setPlainText(entry.programme_details)
         self._remarks_edit.setPlainText(entry.remarks)
+        self._station_addr_edit.setPlainText(entry.station_address)
 
     def show_notice(self, visible: bool) -> None:
         self._notice.setVisible(visible)
@@ -545,6 +555,7 @@ class NewReportTab(QWidget):
         self._interference_edit.clear()
         self._programme_edit.clear()
         self._remarks_edit.clear()
+        self._station_addr_edit.clear()
         # Reset dirty flags
         self._dirty = {k: False for k in self._dirty}
         self._prefill_defaults()
@@ -583,6 +594,7 @@ class NewReportTab(QWidget):
             interference=self._interference_edit.text().strip(),
             programme_details=self._programme_edit.toPlainText().strip(),
             remarks=self._remarks_edit.toPlainText().strip(),
+            station_address=self._station_addr_edit.toPlainText().strip(),
             sender_profile_id=profile.id if profile else 0,
         )
         return entry

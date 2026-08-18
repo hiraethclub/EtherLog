@@ -16,6 +16,7 @@ DEFAULT_VISIBLE_FIELDS: Dict[str, bool] = {
     "interference": True,
     "programme_details": True,
     "remarks": True,
+    "station_address": True,
 }
 
 OPTIONAL_FIELD_LABELS: Dict[str, str] = {
@@ -32,6 +33,7 @@ OPTIONAL_FIELD_LABELS: Dict[str, str] = {
     "interference": "Interference Sources",
     "programme_details": "Programme Details Heard",
     "remarks": "Remarks",
+    "station_address": "Station Postal Address (for airmail QSL label)",
 }
 
 
@@ -43,6 +45,9 @@ class SenderProfile:
     email: str = ""
     listener_number: str = ""
     is_active: bool = False
+    # Full postal return address used on printed airmail QSL labels. Free-form
+    # multi-line text so international address layouts are preserved verbatim.
+    postal_address: str = ""
 
 
 @dataclass
@@ -80,6 +85,9 @@ class ReportEntry:
     interference: str = ""
     programme_details: str = ""
     remarks: str = ""
+    # Recipient's postal mailing address, used as the "To" block when printing
+    # an airmail QSL label. Free-form multi-line text.
+    station_address: str = ""
     created_at: str = ""
     sender_profile_id: int = 0
 

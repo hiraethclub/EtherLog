@@ -48,6 +48,14 @@ class ProfileDialog(QDialog):
         self._listener = QLineEdit(profile.listener_number if profile else "")
         form.addRow("Listener / Membership Number:", self._listener)
 
+        self._postal = QTextEdit(profile.postal_address if profile else "")
+        self._postal.setFixedHeight(90)
+        self._postal.setPlaceholderText(
+            "Return address printed on airmail QSL labels, e.g.\n"
+            "Jane Doe\n123 Example Street\nSpringfield, IL 62704\nUSA"
+        )
+        form.addRow("Return Postal Address:", self._postal)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
@@ -65,6 +73,7 @@ class ProfileDialog(QDialog):
             "location": self._location.text().strip(),
             "email": self._email.text().strip(),
             "listener_number": self._listener.text().strip(),
+            "postal_address": self._postal.toPlainText().strip(),
         }
 
 
@@ -401,6 +410,7 @@ class ConfigTab(QWidget):
             p.location = vals["location"]
             p.email = vals["email"]
             p.listener_number = vals["listener_number"]
+            p.postal_address = vals["postal_address"]
             log_store.update_profile(p)
             self._refresh_profile_list()
 

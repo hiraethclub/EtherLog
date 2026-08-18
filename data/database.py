@@ -59,7 +59,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             location        TEXT    NOT NULL DEFAULT '',
             email           TEXT    NOT NULL DEFAULT '',
             listener_number TEXT    NOT NULL DEFAULT '',
-            is_active       INTEGER NOT NULL DEFAULT 0
+            is_active       INTEGER NOT NULL DEFAULT 0,
+            postal_address  TEXT    NOT NULL DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS reports (
@@ -85,6 +86,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             interference      TEXT    NOT NULL DEFAULT '',
             programme_details TEXT    NOT NULL DEFAULT '',
             remarks           TEXT    NOT NULL DEFAULT '',
+            station_address   TEXT    NOT NULL DEFAULT '',
             created_at        TEXT    NOT NULL DEFAULT '',
             sender_profile_id INTEGER NOT NULL DEFAULT 0
         );
@@ -112,6 +114,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     # Migrate: add any columns introduced after initial release
     _add_column_if_missing(conn, "reports", "operating_system", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "reports", "report_number", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "reports", "station_address", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "sender_profiles", "postal_address", "TEXT NOT NULL DEFAULT ''")
 
 
 def _add_column_if_missing(

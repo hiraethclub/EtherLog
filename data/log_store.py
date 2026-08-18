@@ -15,6 +15,7 @@ from data.database import get_connection
 # ---------------------------------------------------------------------------
 
 def _profile_from_row(row: sqlite3.Row) -> SenderProfile:
+    keys = row.keys()
     return SenderProfile(
         id=row["id"],
         name=row["name"],
@@ -22,6 +23,7 @@ def _profile_from_row(row: sqlite3.Row) -> SenderProfile:
         email=row["email"],
         listener_number=row["listener_number"],
         is_active=bool(row["is_active"]),
+        postal_address=row["postal_address"] if "postal_address" in keys else "",
     )
 
 
@@ -52,14 +54,16 @@ def get_profile_by_id(profile_id: int) -> Optional[SenderProfile]:
 def add_profile(profile: SenderProfile) -> int:
     conn = get_connection()
     cur = conn.execute(
-        "INSERT INTO sender_profiles (name, location, email, listener_number, is_active) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO sender_profiles "
+        "(name, location, email, listener_number, is_active, postal_address) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
         (
             profile.name,
             profile.location,
             profile.email,
             profile.listener_number,
             int(profile.is_active),
+            profile.postal_address,
         ),
     )
     conn.commit()
@@ -70,13 +74,14 @@ def update_profile(profile: SenderProfile) -> None:
     conn = get_connection()
     conn.execute(
         "UPDATE sender_profiles SET name=?, location=?, email=?, "
-        "listener_number=?, is_active=? WHERE id=?",
+        "listener_number=?, is_active=?, postal_address=? WHERE id=?",
         (
             profile.name,
             profile.location,
             profile.email,
             profile.listener_number,
             int(profile.is_active),
+            profile.postal_address,
             profile.id,
         ),
     )
@@ -138,6 +143,7 @@ def _report_from_row(row: sqlite3.Row) -> ReportEntry:
         interference=row["interference"],
         programme_details=row["programme_details"],
         remarks=row["remarks"],
+        station_address=row["station_address"] if "station_address" in keys else "",
         created_at=row["created_at"],
         sender_profile_id=row["sender_profile_id"],
     )
@@ -174,8 +180,8 @@ def save_report(entry: ReportEntry) -> int:
             recipient_email, status, language, target_region, transmitter_site,
             receiver, antenna, software, operating_system, qsl_preference,
             listener_number, fading, interference, programme_details, remarks,
-            created_at, sender_profile_id, report_number
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            station_address, created_at, sender_profile_id, report_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             entry.station_name, entry.frequency, entry.mode,
             entry.date_utc, entry.time_utc, entry.sinpo,
@@ -184,6 +190,7 @@ def save_report(entry: ReportEntry) -> int:
             entry.receiver, entry.antenna, entry.software, entry.operating_system,
             entry.qsl_preference, entry.listener_number,
             entry.fading, entry.interference, entry.programme_details, entry.remarks,
+            entry.station_address,
             now_utc, entry.sender_profile_id, entry.report_number,
         ),
     )
@@ -199,7 +206,7 @@ def update_report(entry: ReportEntry) -> None:
             recipient_email=?, status=?, language=?, target_region=?, transmitter_site=?,
             receiver=?, antenna=?, software=?, operating_system=?, qsl_preference=?,
             listener_number=?, fading=?, interference=?, programme_details=?, remarks=?,
-            sender_profile_id=?
+            station_address=?, sender_profile_id=?
         WHERE id=?""",
         (
             entry.station_name, entry.frequency, entry.mode,
@@ -209,7 +216,7 @@ def update_report(entry: ReportEntry) -> None:
             entry.receiver, entry.antenna, entry.software, entry.operating_system,
             entry.qsl_preference, entry.listener_number,
             entry.fading, entry.interference, entry.programme_details, entry.remarks,
-            entry.sender_profile_id, entry.id,
+            entry.station_address, entry.sender_profile_id, entry.id,
         ),
     )
     conn.commit()
