@@ -145,6 +145,36 @@ platforms.  If you encounter a `No module named 'keyring.backends.*'` error at
 runtime, add the missing backend to the `_keyring_hidden` list in
 `etherlog.spec` and rebuild.
 
+## Releases (automated cross-platform builds)
+
+Tagged releases are built automatically for Windows, macOS and Linux by the
+`Release` GitHub Actions workflow (`.github/workflows/release.yml`).
+
+The application version lives in a single place — `version.py` (`__version__`).
+To cut a release:
+
+1. Bump `__version__` in `version.py` (e.g. `1.0.0-beta.1`).
+2. Commit to `main`.
+3. Create and push a matching tag:
+   ```bash
+   git tag v1.0.0-beta.1
+   git push origin v1.0.0-beta.1
+   ```
+
+The workflow then builds a standalone executable on each platform with
+PyInstaller and publishes them to a GitHub Release. Any tag containing a
+hyphen (`-beta`, `-rc`, …) is published as a **pre-release**.
+
+Published assets:
+
+| Platform | Asset |
+|----------|-------|
+| Windows  | `etherlog-windows-x86_64.exe` |
+| macOS    | `etherlog-macos-arm64` |
+| Linux    | `etherlog-linux-x86_64` |
+
+---
+
 ### Platform notes
 
 **Windows**: the executable runs without a console window (`console=False`).

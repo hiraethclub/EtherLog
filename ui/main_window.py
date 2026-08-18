@@ -17,6 +17,7 @@ from PyQt5.QtCore import QTimer, Qt
 from models import AppConfig
 from data import log_store
 import config as cfg_module
+from version import APP_VERSION
 
 from ui.new_report_tab import NewReportTab
 from ui.log_tab import LogTab
@@ -29,7 +30,7 @@ class MainWindow(QMainWindow):
     def __init__(self, app_config: AppConfig, first_run: bool = False):
         super().__init__()
         self._config = app_config
-        self.setWindowTitle("EtherLog – Shortwave Reception Logger")
+        self.setWindowTitle(f"EtherLog {APP_VERSION} – Shortwave Reception Logger")
         self.resize(1320, 1170)
 
         self._build_ui()
